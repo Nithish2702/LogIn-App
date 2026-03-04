@@ -13,8 +13,8 @@ const User = require('./models/User');
 const app = express();
 
 // Security middleware
-app.use(helmet()); // Adds security headers
-app.use(mongoSanitize()); // Prevents MongoDB injection
+app.use(helmet());
+app.use(mongoSanitize());
 
 // CORS configuration
 const corsOptions = {
@@ -53,16 +53,16 @@ connectDB();
 
 // Rate limiting configurations
 const loginLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // 5 attempts per window
+    windowMs: 15 * 60 * 1000,
+    max: 5,
     message: 'Too many login attempts, please try again after 15 minutes',
     standardHeaders: true,
     legacyHeaders: false,
 });
 
 const registerLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000, // 1 hour
-    max: 3, // 3 registrations per hour per IP
+    windowMs: 60 * 60 * 1000,
+    max: 3,
     message: 'Too many accounts created, please try again after an hour',
     standardHeaders: true,
     legacyHeaders: false,
@@ -75,28 +75,6 @@ const generalLimiter = rateLimit({
 });
 
 app.use(generalLimiter);
-
-// Health check endpoint
-app.get('/', (req, res) => {
-    res.json({ 
-        status: 'OK',
-        message: 'Login API Server is running',
-        version: '1.0.0',
-        endpoints: {
-            register: 'POST /register',
-            login: 'POST /login',
-            health: 'GET /health'
-        }
-    });
-});
-
-app.get('/health', (req, res) => {
-    res.json({ 
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime()
-    });
-});
 
 // Input validation helper
 const validateInput = (username, password) => {
@@ -129,6 +107,34 @@ const validateInput = (username, password) => {
     
     return errors;
 };
+
+// ============================================
+// API ROUTES (MUST BE FIRST)
+// ============================================
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({ 
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        environment: process.env.NODE_ENV || 'development'
+    });
+});
+
+// API status endpoint
+app.get('/api', (req, res) => {
+    res.json({ 
+        status: 'OK',
+        message: 'Login API Server is running',
+        version: '1.0.0',
+        endpoints: {
+            health: 'GET /health',
+            register: 'POST /register',
+            login: 'POST /login'
+        }
+    });
+});
 
 // Register endpoint
 app.post('/register', registerLimiter, async (req, res) => {
@@ -214,7 +220,6 @@ app.post('/login', loginLimiter, async (req, res) => {
             if (process.env.NODE_ENV !== 'production') {
                 console.log(`${logPrefix} User not found`);
             }
-            // Don't reveal if user exists or not
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
@@ -248,22 +253,17 @@ app.post('/login', loginLimiter, async (req, res) => {
     }
 });
 
-// 404 handler
-app.use((req, res) => {
-    res.status(404).json({ 
-        message: 'Endpoint not found',
-        path: req.url
-    });
-});
+// ============================================
+// SERVE FRONTEND (MUST BE LAST)
+// ============================================
 
-// Serve static files from React build (for production)
 if (process.env.NODE_ENV === 'production') {
-    const frontendPath = path.join(__dirname, '../frotend/dist');
-    app.use(express.static(frontendPath));
+    // Serve static files from React build
+    app.use(express.static(path.join(__dirname, '../frotend/dist')));
     
-    // Handle React routing - return index.html for all non-API routes
+    // Handle React routing - return index.html for all other routes
     app.get('*', (req, res) => {
-        res.sendFile(path.join(frontendPath, 'index.html'));
+        res.sendFile(path.join(__dirname, '../frotend/dist/index.html'));
     });
 }
 
@@ -299,10 +299,13 @@ const server = app.listen(PORT, () => {
     console.log(`📍 Port: ${PORT}`);
     console.log(`🔗 URL: http://localhost:${PORT}`);
     console.log('========================================');
-    console.log('Available endpoints:');
-    console.log('  GET  / - Server status');
+    console.log('API Endpoints:');
     console.log('  GET  /health - Health check');
+    console.log('  GET  /api - API status');
     console.log('  POST /register - Create new user');
     console.log('  POST /login - User login');
+    if (process.env.NODE_ENV === 'production') {
+        console.log('\n📦 Serving frontend from /frotend/dist');
+    }
     console.log('========================================\n');
 });
