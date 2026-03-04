@@ -48,7 +48,7 @@ const Register: React.FC = () => {
         return true;
     };
 
-    const handleRegister = async (e: React.FormEvent) => {
+    const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError('');
         setSuccess('');

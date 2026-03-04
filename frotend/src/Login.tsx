@@ -40,7 +40,7 @@ const Login: React.FC = () => {
         return true;
     };
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError('');
 
